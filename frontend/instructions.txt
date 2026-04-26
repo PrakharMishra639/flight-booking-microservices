@@ -1,0 +1,37 @@
+ ✅ On macOS (using Homebrew)
+brew update
+brew install rabbitmq
+
+Start:
+
+brew services start rabbitmq
+
+✅ On macOS (Homebrew)
+brew install redis
+brew services start redis
+
+to run Frontend:
+
+npm run dev
+
+To run backend:
+
+npm run dev
+
+to make transaction use these credit card credentials:
+Card Number: 4242 4242 4242 4242
+Expiration Date (MM/YY): 12 / 28 
+CVC: 123
+
+
+
+to seed data: npm run seed
+
+
+# Generate flight seats for all new schedules
+node ensure_seats.js
+
+# Test search for DEL → BOM
+node test_search.js
+
+

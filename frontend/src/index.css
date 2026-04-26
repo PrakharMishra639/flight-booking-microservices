@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #3b82f6;
+  /* Blue 500 */
+  --color-primary-dark: #2563eb;
+  /* Blue 600 */
+  --color-secondary: #0f172a;
+  /* Slate 900 */
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-heading: 'Outfit', system-ui, sans-serif;
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/20 shadow-xl;
+  }
+
+  .glass-dark {
+    @apply bg-slate-900/40 backdrop-blur-md border border-slate-700/50 shadow-xl;
+  }
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased font-sans;
+}
+
+@media print {
+  /* Hide all generic app UI by default in print */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Expose ONLY the specific document block */
+  #eticket-container, #eticket-container * {
+    visibility: visible;
+  }
+  
+  /* Position it rigidly to the absolute top of the page bounding box */
+  #eticket-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Strip forced background colors off body to ensure PDF cleanliness */
+  body {
+    background-color: transparent !important;
+  }
+}

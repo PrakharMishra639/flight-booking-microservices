@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
+    "mysql2": "^3.22.2",
+    "sequelize": "^6.37.8"
+  }
+}

@@ -1,0 +1,26 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Accept the service name as a build argument
+ARG SERVICE_NAME
+
+# Install dependencies first for better caching
+# Copy shared first
+COPY shared ./shared
+
+# Copy the specific service
+COPY ${SERVICE_NAME} ./${SERVICE_NAME}
+
+# Install dependencies for both shared and the service
+WORKDIR /app/shared
+# Only run if package.json exists in shared (it might not)
+RUN if [ -f package.json ]; then npm install --production; fi
+
+WORKDIR /app/${SERVICE_NAME}
+RUN npm install --production
+
+# Expose the port (though Docker Compose handles mapping)
+# EXPOSE 4000-4008
+
+CMD ["node", "src/app.js"]

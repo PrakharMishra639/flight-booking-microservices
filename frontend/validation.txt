@@ -1,0 +1,77 @@
+================================================================================
+FLIGHT BOOKING APPLICATION - FRONTEND VALIDATION RULES
+================================================================================
+
+This document outlines all the real-time frontend validation rules implemented 
+across the AeroFlow application to ensure data integrity and user experience.
+
+1. LOGIN FORM
+--------------------------------------------------------------------------------
+- Email: Required, must follow standard email format (e.g., user@example.com).
+- Password: Required, must be at least 6 characters long.
+- Real-time UI: 
+    - Red border + error message on invalid input.
+    - Emerald green border on valid input.
+    - "Log In" button disabled until all fields are valid.
+
+2. REGISTRATION FORM
+--------------------------------------------------------------------------------
+- Full Name: Required, 2-50 characters, letters and spaces only.
+- Email: Required, must be a valid email containing '@' and '.'.
+- Phone Number: Required, must be exactly 10 digits (numbers only).
+- Password: Required, minimum 8 characters, must include at least:
+    - 1 Uppercase letter
+    - 1 Lowercase letter
+    - 1 Number
+- Confirm Password: Must be identical to the password field.
+- OTP Verification: 6-digit numeric code required before registration completes.
+- Real-time UI: 
+    - Active validation on every keystroke/blur.
+    - Specific error captions for each rule (e.g., "Must include uppercase").
+
+3. PASSENGER DETAILS (CHECKOUT STEP 1)
+--------------------------------------------------------------------------------
+- Contact Email: 
+    - Pre-filled with logged-in user's email.
+    - DISABLED (Read-only) to ensure booking consistency.
+    - Styled with a grey background and "Verified" badge.
+- Passenger Information (Per Passenger):
+    - Full Name: Required, 2-50 characters, letters/spaces only.
+    - Age: Required, must be a number between 1 and 120.
+    - Gender: Required (Male/Female/Other).
+    - ID Proof Type: Required (Passport, National ID, Driver's License).
+    - ID Proof Number: Required, must be EXACTLY 12 alphanumeric characters.
+- Constraints: "Continue to Seat Selection" button is locked until ALL fields 
+  for ALL passengers are valid.
+
+4. SEAT SELECTION (CHECKOUT STEP 2)
+--------------------------------------------------------------------------------
+- Selection Limit: You must select exactly the number of seats corresponding 
+  to the passenger count for EVERY flight segment in the itinerary.
+- Constraints: "Proceed to Payment" button remains disabled if seat counts 
+  do not match passenger counts.
+
+5. PASSWORD RESET FLOW (FORGOT PASSWORD)
+--------------------------------------------------------------------------------
+- Request Step (Email): Valid email format required to trigger OTP.
+- Reset Step (OTP + New Password):
+    - OTP Code: Must be exactly 6 digits.
+    - New Password: Min 8 chars, 1 upper, 1 lower, 1 number (same as registration).
+    - Confirm Password: Must match the new password.
+
+6. PROFILE PAGE (RESET PASSWORD CARD)
+--------------------------------------------------------------------------------
+- Old Password: Required for security verification.
+- New Password: Min 8 chars, 1 upper, 1 lower, 1 number.
+- Confirm Password: Must match the new password.
+
+7. SEARCH & ROUND-TRIP CONSTRAINTS
+--------------------------------------------------------------------------------
+- Selection requirement: For round-trips, both departure and return flights 
+  MUST be selected to continue.
+- Time Gap Rule: Minimum 6-hour gap required between the Arrival time of the 
+  departure flight and the Departure time of the return flight.
+
+================================================================================
+Generated on: 2026-04-12
+================================================================================
