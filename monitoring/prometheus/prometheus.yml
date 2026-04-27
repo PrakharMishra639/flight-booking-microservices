@@ -1,0 +1,32 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:4000']
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:4001']
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['user-service:4002']
+  - job_name: 'flight-service'
+    static_configs:
+      - targets: ['flight-service:4003']
+  - job_name: 'seat-service'
+    static_configs:
+      - targets: ['seat-service:4004']
+  - job_name: 'booking-service'
+    static_configs:
+      - targets: ['booking-service:4005']
+  - job_name: 'pricing-service'
+    static_configs:
+      - targets: ['pricing-service:4006']
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:4007']
+  - job_name: 'analytics-service'
+    static_configs:
+      - targets: ['analytics-service:4008']

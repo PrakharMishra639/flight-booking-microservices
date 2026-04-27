@@ -18,7 +18,7 @@ WORKDIR /app/shared
 RUN if [ -f package.json ]; then npm install --production; fi
 
 WORKDIR /app/${SERVICE_NAME}
-RUN npm install --production
+RUN npm install --production && npm install prom-client
 
 # Expose the port (though Docker Compose handles mapping)
 # EXPOSE 4000-4008

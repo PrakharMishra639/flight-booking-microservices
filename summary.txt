@@ -1,0 +1,323 @@
+# ==============================================================================
+#                 FLIGHT BOOKING MICROSERVICES - SYSTEM SUMMARY (V4)
+# ==============================================================================
+
+This document provides an exhaustive technical reference for the Flight Booking 
+application. It includes architecture diagrams, technology stack matrices, 
+detailed frontend architectural deep dives, and exhaustive 20-line functional 
+descriptions for every core backend microservice.
+
+---
+## 🏗️ 1. SYSTEM ARCHITECTURE & FLOW DIAGRAMS
+---
+
+### System Architecture (Distributed Microservices)
+```text
+       [ USER BROWSER / MOBILE APP ]
+                   | (HTTP/WS Port 80)
+                   v
+       +---------------------------+
+       |      API GATEWAY (HPM)     |
+       +---------------------------+
+          /        |         \
+ +----------+ +----------+ +----------+ +----------+
+ |  AUTH    | |  FLIGHT  | |   SEAT   | | BOOKING  |
+ | Service  | | Service  | | Service  | | Service  |
+ +----|-----+ +----|-----+ +----|-----+ +----|-----+
+      |            |            |            |
+      |      +-----+-----+      |      +----|-----+
+      |      |           |      |      |          |
+   (MySQL) (Redis)   (MongoDB) (Redis) (Stripe) (SMTP)
+```
+
+---
+## 🎨 2. FRONTEND ARCHITECTURE DEEP DIVE
+---
+The AeroFlow frontend is a high-performance, single-page application (SPA) built 
+with **React 18** and the **Vite** build tool. It follows a modular, feature-based 
+directory structure to ensure scalability across a complex booking platform.
+
+- **Framework**: React 18 (Functional components with Hooks).
+- **State Management**: **Redux Toolkit (RTK)**. We use global slices to manage 
+  Authentication, Flight Search results, Seat selections, and Payment states.
+- **Styling**: **Tailwind CSS**. A mobile-first, utility-based design system 
+  ensures responsiveness across all device sizes.
+- **Real-time Sync**: **Socket.io-client**. Establishes a persistent bi-directional 
+  link to the Seat service for live inventory updates.
+- **Networking**: **Axios** with centralized interceptors for automatic JWT 
+  injection and 401 error handling.
+
+### Key Architectural Modules:
+- **Redux Services Layer**: Every API interaction is abstracted into a "Service" 
+  file (e.g., `authService.js`). This separates business logic from UI components.
+- **Conditional Routing**: Utilizes `react-router-dom` with **Protected Route** 
+  wrappers. This ensures that sensitive pages like "Checkout" or "Admin Dashboard" 
+  cannot be accessed without valid session tokens.
+- **Dynamic Seat Map**: A specialized component that renders a scalable aircraft 
+  layout. It uses CSS Grid for the cabin rows and listens for `seat:locked` 
+  broadcasts to update seat availability without a page refresh.
+- **Date Strip Navigation**: A custom-built horizontal scrolling component that 
+  allows users to compare prices for different dates. It intelligently triggers 
+  new backend searches as the user traverses the timeline.
+
+---
+## 🔄 3. DETAILED USER JOURNEY & SYSTEM FLOW
+---
+The following describes the exact technical path a user takes through the system, 
+including the microservices involved at each stage.
+
+### Stage 1: Landing & Session Initiation
+The user arrives at the **Home Page**. The frontend checks for an existing JWT 
+in a secure cookie. If absent, the **Auth Service** handles login/registration. 
+A successful handshake establishes the user's role (USER or ADMIN) in the 
+global Redux state.
+
+### Stage 2: Flight Discovery (Search)
+The user enters their origin (DEL), destination (BOM), and date. 
+1. The **Flight Service** receives the request via the **API Gateway**.
+2. It executes a Graph-based traversal to find all valid flight paths.
+3. It applies a **Strict Temporal Filter** to hide flights that have already 
+   departed or arrived based on the server clock.
+4. The results are cached in **Redis** and returned to the frontend.
+
+### Stage 3: Selection & Real-time Locking
+The user chooses a flight and views the seat map.
+1. The frontend establishes a **Socket.io** connection to the **Seat Service**.
+2. When the user clicks a seat, the service creates a **Redis Lock (TTL 10m)**.
+3. This seat immediately turns RED (Locked) for all other users currently 
+   viewing that same flight, preventing double-bookings.
+
+### Stage 4: Checkout & Transaction
+The user enters passenger details and proceeds to payment.
+1. The **Booking Service** creates a "PENDING" record and a unique PNR.
+2. The **Pricing Service** calculates the final fare (Base + Seat + Taxes).
+3. The **Stripe API** processes the card transaction.
+4. Upon confirmation (via Webhook), the booking status moves to "CONFIRMED."
+
+### Stage 5: Fulfillment & Boarding Pass
+1. The **Notification Service** generates a PDF E-Ticket in the background.
+2. It generates a unique **QR Code** for the boarding pass.
+3. An automated email is sent to the user via SMTP with the ticket attached.
+4. The user can now view their trip in the "My Bookings" section of their profile.
+
+---
+## 🛠️ 4. TECHNOLOGY STACK MATRIX
+---
+| FEATURE | TECHNOLOGY USED | PURPOSE |
+| :--- | :--- | :--- |
+| **Authentication** | JWT, Bcrypt, PKCE, OAuth2 | Secure stateless sessions |
+| **Search Engine** | Graph Adjacency List, MD5 Hashing | Connecting flight logic |
+| **Search Cache** | Redis (Key/Value) | 50ms response performance |
+| **Seat Locking** | Redis SETNX (TTL 600s) | Prevents double booking |
+| **Real-time Updates** | Socket.io / WebSockets | Live seat status broadcasts |
+| **Database (Relational)** | MySQL 8.0, Sequelize ORM | Relational integrity (Airlines/PNRs) |
+| **Database (Non-Relational)** | MongoDB, Mongoose | Search analytics & trends |
+| **Payment Gateway** | Stripe API | Secure card transactions |
+| **Notification** | Nodemailer (SMTP), PDFKit | E-Tickets & Boarding passes |
+| **Infrastructure** | Docker, Docker Compose | Orchestration & Multi-OS support |
+
+---
+## ⚙️ 5. BACKEND SERVICES: 20-LINE DEEP DIVES
+---
+
+### 📡 1. API GATEWAY (PORT 4000)
+The API Gateway serves as the mission control and single clinical entry point for all frontend traffic. 
+It utilizes the High Performance Proxy (HPM) middleware to dynamically route incoming requests. 
+The gateway is responsible for abstracting the complex multi-port microservice architecture into a clean URL. 
+It handles WebSocket (Socket.io) handshakes, ensuring real-time seat data is proxied to the correct service. 
+Standard HTTP security headers are enforced here using the Helmet middleware to prevent cross-site scripting. 
+CORS (Cross-Origin Resource Sharing) is strictly configured to only allow requests from the trusted frontend. 
+Rate limiting is implemented at this layer to protect the entire ecosystem from brute-force or DDoS attacks. 
+The gateway performs a recursive "Health Check" by pinging every microservice and aggregating their status. 
+It manages cookie-based authentication handshakes, ensuring HttpOnly cookies are correctly passed to Auth. 
+Error handling is centralized here, returning clean JSON error objects to the React frontend instead of stack traces. 
+The gateway allows for versioning of the API without changing the frontend configuration or endpoint URLs. 
+It serves as the bridge for file uploads, routing static assets and profile pictures to the correct storage. 
+By decoupling the client from the microservices, the gateway allows for internal service port changes in silence. 
+It logs every request systematically for auditing, providing a clear path of user movement through the app. 
+Integration with Stripe webhooks is also funneled through here to ensure secure payment callback processing. 
+The gateway ensures that even if one service is down, the rest of the application remains partially functional. 
+It acts as the primary barrier for unauthorized traffic, checking for valid headers before proxying requests. 
+The deployment is optimized to run as a lightweight container focused on efficient I/O and low latency. 
+Finally, the gateway provides a clean socket management layer that keeps concurrent real-time connections stable. 
+It is the backbone of the entire AeroFlow distributed flight booking network.
+
+### 🛡️ 2. AUTH SERVICE (PORT 4001)
+The Auth Service is the standalone authority for user identification, security, and session management. 
+It implements a robust registration flow that includes email validation and password complexity checks. 
+Passwords are never stored in plain text; the service uses Bcrypt.js with 10 rounds of salt to hash them. 
+It manages the generation of stateless JWT (JSON Web Tokens) for the initial user authentication phase. 
+To improve security, it implements a "Refresh Token" strategy where tokens are rotated every 7 days. 
+The service maintains a dedicated RefreshToken table in MySQL to track and invalidate stale sessions. 
+It handles the logic for One-Time Passwords (OTP), ensuring secure account recovery and registration. 
+The OTPs are generated as 6-digit cryptographic strings with a strict 5-minute expiration window. 
+OAuth2 flows are integrated here, allowing users to log in with Google via the PKCE security protocol. 
+It communicates with the Notification Service to trigger transactional emails during the login process. 
+The service enforces account roles (USER, ADMIN, SUPER_ADMIN) used for RBAC across the entire system. 
+It handles the "Logged Out" state by invalidating refresh tokens and clearing client-side cookies. 
+Advanced account security measures like account lockout after multiple failed attempts are handled here. 
+The service uses Sequelize ORM to interact with the database, ensuring SQL injection-safe queries. 
+It exposes an `/internal/verify` route so other microservices can validate a token's authenticity. 
+The container is optimized for security, running on a hardened Alpine Linux image with minimal packages. 
+Error logging is handled by Winston, capturing failed login attempts for real-time security monitoring. 
+It manages the user's secret keys for multi-factor authentication if enabled in future updates. 
+The service architecture is designed for high-availability, supporting multiple nodes for login traffic. 
+It is the definitive source of truth for who an individual is within the microservice network.
+
+### 👥 3. USER SERVICE (PORT 4002)
+The User Service is the dedicated custodian of all persistent user profile data and account metadata. 
+Unlike Auth, this service focuses only on "who the user is" rather than "how the user logs in." 
+It manages the User model in MySQL, storing full names, phone numbers, and profile picture URLs. 
+The service provides a robust API for users to update their personal information securely via the portal. 
+Admin-level user management is implemented here, allowing staff to view and modify user account statuses. 
+It handles the logic for "Soft Deletion," where accounts are marked as INACTIVE instead of being erased. 
+The service validates unique constraints, ensuring no two users can share the same verified phone number. 
+It bridges the gap between the Auth service and the Booking service during person-specific lookups. 
+The service implements profile caching to speed up user-data retrieval for high-traffic operations. 
+It serves as the repository for user preferences, such as saved frequent flyer numbers or travel documents. 
+Data privacy is a priority here, with sensors that anonymize or encrypt sensitive user profile fields. 
+The service uses middleware to ensure only the owner of a profile (or an admin) can modify its data. 
+It handles the mapping of OAuth profiles (Google/Facebook) to our internal relational user records. 
+User-specific analytics, such as account age and total expenditure, are calculated and exposed here. 
+The REST API is designed to be highly granular, optimized for mobile-app profile synchronizations. 
+It handles file upload callbacks, linking profile picture uploads in the cloud to the user's database. 
+The service maintains a history of role changes, providing a clear audit trail for administrative actions. 
+It is built with horizontal scalability in mind to handle millions of user profile records efficiently. 
+The service ensures that user profile state is consistent across all other consumer microservices. 
+It is the foundation of the personalized experience within the AeroFlow travel ecosystem.
+
+### ✈️ 4. FLIGHT SERVICE (PORT 4003)
+The Flight Service is the computational engine responsible for all search and flight scheduling logic. 
+It implements a sophisticated Graph Adjacency List to represent the global network of air travel routes. 
+Finding connecting flights is its primary task, executing recursive searches for up to 3 layovers. 
+It applies a unique "Temporal Hardening" filter that removes results where the flight has already landed. 
+The service uses the current system clock to ensure departure times in the past are strictly hidden. 
+It interacts with Redis to provide high-speed caching for common search routes like "DEL to BOM." 
+Each search is hashed using an MD5 algorithm to create unique cache keys for various date/class combos. 
+The service calculates total travel time across multi-leg journeys, including accurate layover durations. 
+It fetches seat availability from the Seat Service to ensure non-bookable flights are pruned early. 
+Collaborates with the Pricing Service to display real-time fares for Economy, Business, and First class. 
+The search algorithm is optimized to return the cheapest and fastest itineraries to the user interface. 
+It manages the lifecycle of Flight and Schedule records, including status updates (ON-TIME, DELAYED). 
+The service provides a specialized API for the Date Strip, returning the lowest prices for +/- 7 days. 
+It handles airport metadata, including timezones, latitudes, and longitudes for distance calculations. 
+Large-scale database queries are optimized using Sequelize indexing for the departure_time column. 
+The service is designed to handle thousands of concurrent searches per second without total failure. 
+MongoDB is used here as a secondary store for historical search trends and traffic pattern analysis. 
+It exposes a refined "Direct Flight" optimization that prioritizes non-stop travel for user comfort. 
+The logic is hardened against time-zone drift, using UTC time internally for all flight comparisons. 
+It is the intelligent core that powers the booking discovery phase for every AeroFlow passenger.
+
+### 💺 5. SEAT SERVICE (PORT 4004)
+The Seat Service is the high-concurrency manager of all real-time seat inventory and map layouts. 
+It utilizes Redis as a distributed lock manager to prevent two people from selecting the same seat. 
+When a user clicks a seat, an atomic "SETNX" command creates a 10-minute lock in the Redis store. 
+The service handles real-time synchronization using Socket.io to broadcast seat changes to all users. 
+Every time a seat is locked, an event is emitted through the Gateway to update all active browsers. 
+It maintains the mapping of Seat IDs to aircraft rows and columns (e.g., Row 12, Column A). 
+The service distinguishes between Seat Classes (First, Business, Economy) based on the aircraft type. 
+It calculates seat-specific pricing surcharges (e.g., extra legroom or window seat premiums). 
+The database stores state for millions of individual flight-seats across all scheduled journeys. 
+It manages seat "Status Transitions" moving from AVAILABLE to LOCKED, and then to BOOKED or EXPIRED. 
+The service is designed for sub-millisecond latency to ensure a responsive "UI Click" experience. 
+It fetches the aircraft layout dynamically, supporting various plane models like the Boeing 737 or A320. 
+Auto-expiration of locks is handled by Redis TTL, ensuring seats are released if payment is not made. 
+The service works closely with the Booking service to confirm locks once a transaction is finished. 
+A specialized "Internal API" allows the Flight service to check total remaining seat counts quickly. 
+Socket rooms are utilized to ensure users only receive updates for the specific flight they are viewing. 
+The service handles bulk seat creation during the database seeding process for new flight schedules. 
+It provides a "Heat Map" of seat popularity which is consumed by the Analytics service for reporting. 
+The locking logic is hardened against concurrent race conditions using transaction-safe Redis scripts. 
+It ensures that the "Last Seat Available" is always sold to the fastest user without a double-booking.
+
+### 🎫 6. BOOKING SERVICE (PORT 4005)
+The Booking Service is the transactional orchestrator that manages the legal lifecycle of an itinerary. 
+It acts as the state manager for every ticket, moving them from PENDING to CONFIRMED or CANCELLED. 
+When a booking begins, it generates a unique PNR (Passenger Name Record) using an offset algorithm. 
+The service coordinates with the Seat service to finalize permanent seat assignments after payment. 
+It stores the detailed Passenger Manifest, including names, ages, and travel document references. 
+The service calculates the final total price, including base fares, seat fees, and taxes. 
+It handles the logic for "Booking Expiration," where unpaid reservations are automatically voided. 
+Stripe integration is managed here, initializing payment intents and tracking successful charge IDs. 
+The service exposes an audit-ready API for users to view their booking history and current status. 
+It triggers the Notification service to send E-tickets and QR codes upon successful confirmation. 
+Admin tools are implemented here to allow staff to cancel bookings and issue manual refunds. 
+The service ensures that a single booking can handle multiple passengers and multiple flight legs. 
+It uses a robust relational schema in MySQL to maintain strict data integrity for financial records. 
+Post-booking modifications, such as name corrections or class upgrades, are processed here. 
+The service maintains a log of every status change for a PNR, providing a complete transaction trail. 
+It is designed to be "Event Driven," listening for payment success webhooks to finalize tickets. 
+The PNR search functionality allows users to look up their current trips without logging into an account. 
+It manages the boarding pass generation trigger, ensuring data is ready for the airport check-in. 
+The service is built to be resilient, ensuring that database locks prevent inconsistent booking states. 
+It is the legal system of record for every passenger traveling on our global flight network.
+
+### 💰 7. PRICING SERVICE (PORT 4006)
+The Pricing Service is the dedicated intelligence layer for dynamic fare calculation and multipliers. 
+It removes the complexity of pricing logic from the Flight service to allow for easier rule updates. 
+The service manages class-based multipliers, such as 2.5x for Business and 4.0x for First class. 
+It implements "Lead Time Pricing," where flights booked months in advance receive a base discount. 
+The service calculates taxes and airport fees based on the source and destination airport codes. 
+It provides an API for the Seat service to determine the fee for specific premium seat locations. 
+Currency conversion logic is handled here, allowing users to see prices in their local denominations. 
+The service can handle "Flash Sales" or promo codes, applying discounts to the total booking value. 
+It is designed to be stateless, accepting a base price and returning a fully itemized cost breakdown. 
+The pricing rules are stored in a flexible config layer, allowing admins to update fares instantly. 
+It handles the logic for "Refund Calculations," determining how much a user gets back after cancellation. 
+The service ensures that all other microservices see the exact same price for the same search query. 
+It logs price fluctuations over time, providing data for the Analytics service to track revenue trends. 
+The REST API is optimized for high-speed calls during the search phase to prevent UI lag. 
+It validates that a user-provided price matches the system's own calculation during final checkout. 
+The service architecture allows for A/B testing of different pricing strategies for specific routes. 
+It acts as a safeguard against potential pricing errors or database inconsistencies in the flight list. 
+The service ensures that the total price shown to the user is accurate down to the last decimal. 
+It supports holiday surcharges and weekend pricing logic to maximize revenue for the airline carrier. 
+It is the financial brain that ensures every transaction is profitable and consistently priced.
+
+### 📧 8. NOTIFICATION SERVICE (PORT 4007)
+The Notification Service is the primary communication bridge between the backend and the actual user. 
+It manages all outbound SMTP traffic, sending millions of transactional emails to global passengers. 
+Nodemailer is used to produce beautiful, mobile-responsive HTML email templates for all alerts. 
+The service generates E-Tickets in PDF format, dynamically injecting passenger and flight data. 
+It handles the generation of Boarding Passes, including the creation and embedding of QR codes. 
+The service sends real-time One-Time Passwords (OTP) for account verification and security events. 
+Booking confirmations are triggered here, including the full PDF attachment and PNR information. 
+It manages the "Welcome Email" sequence for new users to explain how to use the AeroFlow platform. 
+The service implements a "Retry Logic" for failed emails, ensuring important info always arrives. 
+It provides an internal API for other services to "Fire and Forget" emails without waiting for SMTP. 
+The service logs every sent message, allowing admins to confirm if a user actually received a ticket. 
+It handles attachment management, ensuring that generated PDFs are cleaned up after they are sent. 
+The notification templates are centralized here, allowing for easy updates to branding or logos. 
+It handles account security alerts, such as "New Login Detected" or "Password Successfully Changed." 
+The service is optimized to handle large bursts of email traffic during peak flight booking hours. 
+It ensures that QR codes are generated with high resolution for easy scanning at the airport gate. 
+The container is lightweight, focused on I/O throughput and PDF generation performance. 
+It supports multiple languages, translating email content based on the target user's profile settings. 
+The service architecture is isolated so that an email bottleneck never slows down the main search. 
+It is the voice of the AeroFlow system, keeping passengers informed throughout their entire trip.
+
+### 📊 9. ANALYTICS SERVICE (PORT 4008)
+The Analytics Service is the non-relational intelligence layer that tracks system usage and trends. 
+It uses MongoDB to store high-volume, unstructured event data that would overwhelm a SQL database. 
+Every flight search is logged here, providing data on the most popular routes and city pairings. 
+The service tracks "Booking Conversion Rates," measuring how many searches result in a final ticket. 
+It powers the Admin Dashboard's revenue charts, calculating daily, weekly, and monthly growth. 
+User engagement metrics, such as time-on-site and frequent flyer activity, are aggregated here. 
+The service uses Mongoose to model the telemetry data and perform complex "Aggregation Pipelines." 
+It provides a "Heat Map" of aircraft seat popularity to help airlines optimize their cabin layouts. 
+The service identifies "Search Failures," helping admins spot routes that users want but don't exist. 
+It tracks system errors and 500 responses, providing a "Stability Dashboard" for the developers. 
+The service handles the logic for "Performance Benchmarking," timing how long search requests take. 
+It is designed to be asynchronous; services send data to it without waiting for a success response. 
+The database is optimized for time-series data, allowing for fast retrieval of historical trends. 
+It provides the "Top 5 Destination" list shown on the public frontend to encourage new bookings. 
+Data here is used to calculate "Peak Demand," helping the Pricing service adjust fares automatically. 
+The service ensures that huge amounts of log data don't slow down the core relational database. 
+It acts as the "Black Box" of the application, recording every action for future business review. 
+The analytics container is scalable, focused on heavy writes and complex analytical computations. 
+It is the "Future Outlook" engine that helps the business grow by understanding its customers better. 
+It is the final piece of the AeroFlow ecosystem, turning raw data into actionable travel insights.
+
+# ==============================================================================
+# End of Hyper-Detailed Summary
+# ==============================================================================

@@ -1,0 +1,17 @@
+{
+  "users": 1000,
+  "docker_microservices": {
+    "response_time": "1.2s",
+    "throughput": "350 req/s",
+    "cpu": "85%",
+    "memory": "512MB",
+    "error_rate": "1.5%"
+  },
+  "kubernetes_microservices": {
+    "response_time": "0.3s",
+    "throughput": "800 req/s",
+    "cpu": "65%",
+    "memory": "1.2GB (scaled across 5 replicas)",
+    "error_rate": "0.1%"
+  }
+}

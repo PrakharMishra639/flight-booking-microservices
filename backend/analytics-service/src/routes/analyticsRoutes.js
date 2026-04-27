@@ -9,6 +9,7 @@ router.get('/users', c.allUsers);
 router.patch('/users/:userId/role', c.updateUserRole);
 router.get('/system-logs', c.systemLogs);
 router.post('/track', c.trackResponseTime);
+router.post('/performance', c.trackPerformanceData);
 
 // Flight admin CRUD proxied
 router.get('/airlines', c.getAirlines);

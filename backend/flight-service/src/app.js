@@ -11,6 +11,9 @@ const flightRoutes = require('./routes/flightRoutes');
 const errorHandler = require('../../shared/middleware/errorHandler');
 
 const app = express();
+const { metricsMiddleware, metricsRoute } = require('../../shared/middleware/metrics');
+app.use(metricsMiddleware);
+app.get('/metrics', metricsRoute);
 
 app.use(helmet());
 app.use(cors());

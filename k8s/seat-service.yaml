@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: seat-service
+spec:
+  ports:
+    - port: 4004
+  selector:
+    app: seat-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seat-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: seat-service
+  template:
+    metadata:
+      labels:
+        app: seat-service
+    spec:
+      containers:
+        - name: seat-service
+          image: seat-service:latest
+          env:
+            - name: PORT
+              value: "4004"
+            - name: DB_HOST
+              value: "mysql"
+            - name: REDIS_HOST
+              value: "redis"
+          ports:
+            - containerPort: 4004
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4004
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4004
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: seat-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: seat-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

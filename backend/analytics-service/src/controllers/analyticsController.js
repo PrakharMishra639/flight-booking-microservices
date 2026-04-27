@@ -65,8 +65,20 @@ const updateSchedule = async (req, res, next) => { try { const r = await axios.p
 const deleteSchedule = async (req, res, next) => { try { await axios.delete(`${FLIGHT_SERVICE_URL}/admin/schedules/${req.params.id}`); res.json({ success: true }); } catch (e) { next(e); } };
 const updateFlightStatus = async (req, res, next) => { try { const r = await axios.patch(`${FLIGHT_SERVICE_URL}/admin/schedules/${req.params.id}/status`, req.body); res.json(r.data); } catch (e) { next(e); } };
 
+const trackPerformanceData = async (req, res, next) => {
+  try {
+    const PerformanceData = require('../models/PerformanceData');
+    const data = new PerformanceData(req.body);
+    await data.save();
+    res.status(201).json({ message: 'Performance data saved successfully', data });
+  } catch (error) {
+    console.error('[analytics-service] Error saving performance data:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
-  dashboard, allBookings, allPayments, allUsers, updateUserRole, systemLogs, trackResponseTime,
+  dashboard, allBookings, allPayments, allUsers, updateUserRole, systemLogs, trackResponseTime, trackPerformanceData,
   getAirlines, createAirline, updateAirline, deleteAirline,
   getAirports, createAirport, updateAirport, deleteAirport,
   getFlights, createFlight, updateFlight, deleteFlight,

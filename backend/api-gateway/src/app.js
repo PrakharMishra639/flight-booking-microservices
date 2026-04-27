@@ -12,6 +12,9 @@ const services = require('./config/services');
 const { generalLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
+const { metricsMiddleware, metricsRoute } = require('../../shared/middleware/metrics');
+app.use(metricsMiddleware);
+app.get('/metrics', metricsRoute);
 const server = http.createServer(app);
 
 // === Middleware ===
